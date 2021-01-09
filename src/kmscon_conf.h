@@ -92,6 +92,10 @@ struct kmscon_conf_t {
 	char *palette;
 	/* terminal scroll-back buffer size */
 	unsigned int sb_size;
+	/* show the issue file */
+	bool show_issue;
+	/* issue file path(s) */
+	char *issue_path;
 
 	/* Input Options */
 	/* input KBD model */

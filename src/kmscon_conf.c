@@ -98,6 +98,11 @@ static void print_help()
 		"\t                              Select the used color palette\n"
 		"\t    --sb-size <num>         [1000]\n"
 		"\t                              Size of the scrollback-buffer in lines\n"
+		"\t    --show-issue            [off]\n"
+		"\t                              Show the issue files\n"
+		"\t    --issue-path <path[:path..]> [NONE]\n"
+		"\t                              set an alternative path(s) for the\n"
+		"\t                              issue file(s)\n"
 		"\n"
 		"Input Options:\n"
 		"\t    --xkb-model <model>        [-]  Set XkbModel for input devices\n"
@@ -569,6 +574,8 @@ int kmscon_conf_new(struct conf_ctx **out)
 		CONF_OPTION_BOOL(0, "reset-env", &conf->reset_env, true),
 		CONF_OPTION_STRING(0, "palette", &conf->palette, NULL),
 		CONF_OPTION_UINT(0, "sb-size", &conf->sb_size, 1000),
+		CONF_OPTION_BOOL(0, "show-issue", &conf->show_issue, false),
+		CONF_OPTION_STRING(0, "issue-path", &conf->issue_path, NULL),
 
 		/* Input Options */
 		CONF_OPTION_STRING(0, "xkb-model", &conf->xkb_model, ""),
