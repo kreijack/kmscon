@@ -41,6 +41,7 @@
 #include "shl_log.h"
 #include "shl_misc.h"
 #include "shl_ring.h"
+#include "issue.h"
 
 #define LOG_SUBSYSTEM "pty"
 
@@ -276,6 +277,15 @@ exec_child(const char *term, const char *colorterm, char **argv,
 		setenv("XDG_SEAT", seat, 1);
 	if (vtnr)
 		setenv("XDG_VTNR", vtnr, 1);
+
+
+	{
+		/* TBD: check if there is no vtnr */
+		char ttyname[128];
+		snprintf(ttyname, 127, "tty%s", vtnr);
+		ttyname[127] = 0;
+		show_issue("/tmp/issue", ttyname, seat);
+	}
 
 	execve(argv[0], argv, environ);
 
