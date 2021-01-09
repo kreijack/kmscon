@@ -488,6 +488,8 @@ kmscon_SOURCES = \
 	src/conf.c \
 	src/pty.h \
 	src/pty.c \
+	src/issue.c \
+	src/issue.h \
 	src/font.h \
 	src/font.c \
 	src/font_8x16.c \
