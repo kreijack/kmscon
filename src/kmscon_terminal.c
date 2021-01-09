@@ -490,7 +490,7 @@ static int terminal_open(struct kmscon_terminal *term)
 	tsm_vte_hard_reset(term->vte);
 	width = tsm_screen_get_width(term->console);
 	height = tsm_screen_get_height(term->console);
-	ret = kmscon_pty_open(term->pty, width, height);
+	ret = kmscon_pty_open(term->pty, width, height, term->conf);
 	if (ret)
 		return ret;
 
