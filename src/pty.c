@@ -245,10 +245,11 @@ static bool pty_is_open(struct kmscon_pty *pty)
 static void __attribute__((noreturn))
 exec_child(const char *term, const char *colorterm, char **argv,
 	   const char *seat, const char *vtnr, bool env_reset,
-	   struct kmscon_conf_t *conf)
+	   struct kmscon_conf_t *conf, char *slave_name)
 {
 	char **env;
 	char **def_argv;
+	int i;
 
 	if (env_reset) {
 		env = malloc(sizeof(char*));
@@ -279,6 +280,21 @@ exec_child(const char *term, const char *colorterm, char **argv,
 	if (vtnr)
 		setenv("XDG_VTNR", vtnr, 1);
 
+/*
+	ret = ptsname_r(master, slave_name, sizeof(slave_name));
+	if (ret) {
+		log_err("cannot find slave name: %m");
+		goto err_out;
+	}*/
+
+	if (!strncmp(slave_name, "/dev/", 5))
+		slave_name += 5;
+
+	for (i = 0 ; argv[i] ; i++) {
+		if (!strcmp(argv[i], "{ptsname}"))
+			argv[i] = slave_name;
+	}
+
 
 	if (conf->show_issue) {
 		/* TBD: check if there is no vtnr */
@@ -292,17 +308,19 @@ exec_child(const char *term, const char *colorterm, char **argv,
 
 	log_err("failed to exec child %s: %m", argv[0]);
 
+err_out:
 	exit(EXIT_FAILURE);
 }
 
-static void setup_child(int master, struct winsize *ws)
+static void setup_child(int master, struct winsize *ws, char **slave_name_ret)
+
 {
 	int ret;
 	sigset_t sigset;
 	pid_t pid;
-	char slave_name[128];
 	int slave = -1, i;
 	struct termios attr;
+	char slave_name[128];
 
 	/* The child should not inherit our signal mask. */
 	sigemptyset(&sigset);
@@ -325,16 +343,22 @@ static void setup_child(int master, struct winsize *ws)
 		goto err_out;
 	}
 
+	/* This also loses our controlling tty. */
+	pid = setsid();
+	if (pid < 0) {
+		log_err("cannot start a new session: %m");
+		goto err_out;
+	}
+
 	ret = ptsname_r(master, slave_name, sizeof(slave_name));
 	if (ret) {
 		log_err("cannot find slave name: %m");
 		goto err_out;
 	}
 
-	/* This also loses our controlling tty. */
-	pid = setsid();
-	if (pid < 0) {
-		log_err("cannot start a new session: %m");
+	*slave_name_ret = strdup(slave_name);
+	if (!*slave_name_ret) {
+		log_err("cannot dup slave_name: %m");
 		goto err_out;
 	}
 
@@ -396,6 +420,8 @@ static int pty_spawn(struct kmscon_pty *pty, int master,
 {
 	pid_t pid;
 	struct winsize ws;
+	int ret;
+	char *slave_name;
 
 	memset(&ws, 0, sizeof(ws));
 	ws.ws_col = width;
@@ -407,9 +433,9 @@ static int pty_spawn(struct kmscon_pty *pty, int master,
 		log_err("cannot fork: %m");
 		return -errno;
 	case 0:
-		setup_child(master, &ws);
+		setup_child(master, &ws, &slave_name);
 		exec_child(pty->term, pty->colorterm, pty->argv, pty->seat,
-			   pty->vtnr, pty->env_reset, conf);
+			   pty->vtnr, pty->env_reset, conf, slave_name);
 		exit(EXIT_FAILURE);
 	default:
 		log_debug("forking child %d", pid);
