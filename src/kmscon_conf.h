@@ -108,6 +108,8 @@ struct kmscon_conf_t {
 	unsigned int xkb_repeat_delay;
 	/* keyboard key-repeat rate */
 	unsigned int xkb_repeat_rate;
+	/* config keyboard from systemd-localed */
+	bool xkb_autoconfig_keyboard;
 
 	/* Grabs / Keyboard-Shortcuts */
 	/* scroll-up grab */
