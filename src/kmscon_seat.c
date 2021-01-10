@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <systemd/sd-bus.h>
 #include "conf.h"
 #include "eloop.h"
 #include "kmscon_conf.h"
@@ -650,6 +651,98 @@ static void seat_input_event(struct uterm_input *input,
 	}
 }
 
+static int get_prop(sd_bus *bus, char *property_name, sd_bus_error *error, char **res) {
+	int r;
+	r = sd_bus_get_property_string(bus,
+		   "org.freedesktop.locale1",		   /* service to contact */
+		   "/org/freedesktop/locale1",		  /* object path */
+		   "org.freedesktop.locale1",		   /* interface name */
+		   property_name,
+		   error,
+		   res);
+
+	return r;
+}
+
+static int do_autonconfig_keyboard(struct kmscon_conf_t *conf)
+{
+	sd_bus *bus = NULL;
+	int r;
+
+	/* Connect to the system bus */
+	r = sd_bus_open_system(&bus);
+	if (r < 0) {
+			log_err("Failed to connect to system bus: %s\n", strerror(-r));
+			goto finish;
+	}
+
+	/* update only the empty fields */
+	if (!conf->xkb_layout || !*conf->xkb_layout) {
+		sd_bus_error error = SD_BUS_ERROR_NULL;
+		char *ret;
+
+		r = get_prop(bus, "X11Layout", &error, &ret);
+		if (r < 0) {
+			log_err("Failed to issue method call: %s\n", error.message);
+			sd_bus_error_free(&error);
+			goto finish;
+		}
+		sd_bus_error_free(&error);
+		conf->xkb_layout = ret;
+		log_debug("xkb_layout:\t%s\n", conf->xkb_layout);
+	}
+
+	if (!conf->xkb_model || !*conf->xkb_model) {
+		sd_bus_error error = SD_BUS_ERROR_NULL;
+		char *ret;
+
+		r = get_prop(bus, "X11Model", &error, &ret);
+		if (r < 0) {
+			log_err("Failed to issue method call: %s\n", error.message);
+			sd_bus_error_free(&error);
+			goto finish;
+		}
+		sd_bus_error_free(&error);
+		conf->xkb_model = ret;
+		log_debug("xkb_model:\t%s\n", conf->xkb_model);
+	}
+
+	if (!conf->xkb_options || !*conf->xkb_options) {
+		sd_bus_error error = SD_BUS_ERROR_NULL;
+		char *ret;
+
+		r = get_prop(bus, "X11Options", &error, &ret);
+		if (r < 0) {
+			log_err("Failed to issue method call: %s\n", error.message);
+			sd_bus_error_free(&error);
+			goto finish;
+		}
+		sd_bus_error_free(&error);
+		conf->xkb_options = ret;
+		log_debug("xkb_options:\t%s\n", conf->xkb_options);
+	}
+
+	if (!conf->xkb_variant || !*conf->xkb_variant) {
+		sd_bus_error error = SD_BUS_ERROR_NULL;
+		char *ret;
+
+		r = get_prop(bus, "X11Variant", &error, &ret);
+		if (r < 0) {
+			log_err("Failed to issue method call: %s\n", error.message);
+			sd_bus_error_free(&error);
+			goto finish;
+		}
+		sd_bus_error_free(&error);
+		conf->xkb_variant = ret;
+		log_debug("xkb_variant:\t%s\n", conf->xkb_variant);
+	}
+
+finish:
+	sd_bus_unref(bus);
+
+	return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
 int kmscon_seat_new(struct kmscon_seat **out,
 		    struct conf_ctx *main_conf,
 		    struct ev_eloop *eloop,
@@ -708,6 +801,9 @@ int kmscon_seat_new(struct kmscon_seat **out,
 			log_error("cannot read keymap file %s: %d",
 				  seat->conf->xkb_keymap, ret);
 	}
+
+	if (seat->conf->xkb_autoconfig_keyboard)
+		do_autonconfig_keyboard(seat->conf);
 
 	ret = uterm_input_new(&seat->input, seat->eloop,
 			      seat->conf->xkb_model,
